@@ -70,7 +70,7 @@
 
       document.getElementById("joinBtn").disabled = true;
       try {
-        var res = await fetch(TOKEN_ENDPOINT + "?room=djtripinva&username=" + encodeURIComponent(name));
+        var res = await fetch(TOKEN_ENDPOINT + "?room=monstercat&username=" + encodeURIComponent(name));
         var data = await res.json();
 
         room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
