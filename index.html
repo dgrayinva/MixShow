@@ -34,9 +34,7 @@
     </div>
   </header>
   <div class="split-container">
-    <div class="twitch-pane">
-     <iframe src="https://twitch.tv" allowfullscreen="true"></iframe>
-    </div>
+    <div class="twitch-pane" id="twitchBox"></div>
     <div class="grid-pane" id="videoGrid">
       <div class="video-tile" id="placeholderTile">
         <span style="padding: 12px; text-align: center;">Click <strong>Join Video Wall</strong> to turn on your camera (Audio is disabled)</span>
@@ -44,6 +42,19 @@
     </div>
   </div>
   <script>
+    // Build Twitch URL in pieces so browser extensions cannot strip parameters
+    var p1 = "https://player.";
+    var p2 = "twitch.tv/";
+    var p3 = "?channel=djtripinva";
+    var p4 = "&parent=dgrayinva.github.io";
+    var p5 = "&muted=false";
+
+    var twitchFrame = document.createElement("iframe");
+    twitchFrame.src = p1 + p2 + p3 + p4 + p5;
+    twitchFrame.allowFullscreen = true;
+    document.getElementById("twitchBox").appendChild(twitchFrame);
+
+    // Video Wall & LiveKit Setup
     var LIVEKIT_URL = "wss://your-project.livekit.cloud";
     var TOKEN_ENDPOINT = "https://workers.dev";
     var room;
@@ -84,7 +95,7 @@
         await room.localParticipant.setMicrophoneEnabled(false);
 
         var pubs = Array.from(room.localParticipant.videoTrackPublications.values());
-        if (pubs.length && pubs.track) attachTrack(pubs.track, name + " (You)");
+        if (pubs.length && pubs[0].track) attachTrack(pubs[0].track, name + " (You)");
 
         document.getElementById("joinBtn").style.display = "none";
         document.getElementById("leaveBtn").style.display = "inline-block";
