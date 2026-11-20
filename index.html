@@ -7,106 +7,24 @@
   <script src="https://jsdelivr.net"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #0e0e10;
-      color: #efeff1;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    header {
-      background: #18181b;
-      padding: 12px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #2f2f35;
-    }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0e0e10; color: #efeff1; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    header { background: #18181b; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2f2f35; }
     .controls { display: flex; gap: 10px; align-items: center; }
-    input {
-      background: #0e0e10;
-      border: 1px solid #3a3a3d;
-      color: white;
-      padding: 6px 10px;
-      border-radius: 4px;
-    }
-    button {
-      background: #9147ff;
-      color: white;
-      border: none;
-      padding: 7px 14px;
-      border-radius: 4px;
-      font-weight: 600;
-      cursor: pointer;
-    }
+    input { background: #0e0e10; border: 1px solid #3a3a3d; color: white; padding: 6px 10px; border-radius: 4px; }
+    button { background: #9147ff; color: white; border: none; padding: 7px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; }
     button:hover { background: #772ce8; }
     button.leave { background: #eb0400; display: none; }
-    .split-container {
-      display: flex;
-      flex: 1;
-      height: calc(100vh - 55px);
-    }
-    .twitch-pane {
-      flex: 1.2;
-      background: #000;
-      border-right: 1px solid #2f2f35;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .twitch-pane iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    .grid-pane {
-      flex: 1;
-      padding: 15px;
-      overflow-y: auto;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      grid-auto-rows: 140px;
-      gap: 12px;
-      align-content: start;
-    }
-    .video-tile {
-      position: relative;
-      background: #1f1f23;
-      border-radius: 8px;
-      overflow: hidden;
-      border: 1px solid #3a3a3d;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #adadb8;
-      font-size: 13px;
-    }
-    .video-tile video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1);
-    }
-    .name-tag {
-      position: absolute;
-      bottom: 8px;
-      left: 8px;
-      background: rgba(0, 0, 0, 0.75);
-      color: #fff;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-    }
-    @media (max-width: 768px) {
-      .split-container { flex-direction: column; }
-      .twitch-pane { flex: none; height: 40vh; }
-    }
+    .split-container { display: flex; flex: 1; height: calc(100vh - 55px); }
+    .twitch-pane { flex: 1.2; background: #000; border-right: 1px solid #2f2f35; display: flex; align-items: center; justify-content: center; }
+    .twitch-pane iframe { width: 100%; height: 100%; border: none; }
+    .grid-pane { flex: 1; padding: 15px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); grid-auto-rows: 140px; gap: 12px; align-content: start; }
+    .video-tile { position: relative; background: #1f1f23; border-radius: 8px; overflow: hidden; border: 1px solid #3a3a3d; display: flex; align-items: center; justify-content: center; color: #adadb8; font-size: 13px; }
+    .video-tile video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    .name-tag { position: absolute; bottom: 8px; left: 8px; background: rgba(0, 0, 0, 0.75); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+    @media (max-width: 768px) { .split-container { flex-direction: column; } .twitch-pane { flex: none; height: 40vh; } }
   </style>
 </head>
 <body>
-
   <header>
     <div><strong>DJ TRIPIN VA</strong> <span style="font-size: 12px; color: #adadb8;">• Fan Wall (Video Only)</span></div>
     <div class="controls">
@@ -115,55 +33,38 @@
       <button id="leaveBtn" class="leave" onclick="leaveWall()">Leave Wall</button>
     </div>
   </header>
-
   <div class="split-container">
-    <!-- Left Side: Auto-configured Twitch Player for djtripinva -->
     <div class="twitch-pane" id="twitchContainer"></div>
-
-    <!-- Right Side: Video-Only Fan Grid -->
     <div class="grid-pane" id="videoGrid">
       <div class="video-tile" id="placeholderTile">
         <span style="padding: 12px; text-align: center;">Click <strong>Join Video Wall</strong> to turn on your camera (Audio is disabled)</span>
       </div>
     </div>
   </div>
-
   <script>
-    // 1. Load Twitch Player with automatic domain detection for GitHub Pages
-    const host = window.location.hostname;
-    const twitchContainer = document.getElementById("twitchContainer");
+    var host = window.location.hostname;
+    var twitchContainer = document.getElementById("twitchContainer");
 
-    if (!host) {
-      // Friendly notice if opened locally via file://
-      twitchContainer.innerHTML = `
-        <div style="padding: 24px; text-align: center; max-width: 360px;">
-          <h3 style="margin-bottom: 8px;">Upload to GitHub Pages to View Stream</h3>
-          <p style="color: #adadb8; font-size: 14px;">
-            Twitch blocks local files (<code>file://</code>). Once hosted on your <code>.github.io</code> link, <strong>djtripinva</strong> will load automatically here.
-          </p>
-        </div>`;
-    } else {
-      const iframe = document.createElement("iframe");
-      iframe.src = `https://twitch.tv{host}&muted=false`;
+    if (host) {
+      var iframe = document.createElement("iframe");
+      iframe.src = "https://twitch.tv" + host + "&muted=false";
       iframe.allowFullscreen = true;
       twitchContainer.appendChild(iframe);
     }
 
-    // 2. LiveKit Setup (Replace with your LiveKit URL & Worker endpoint when ready)
-    const LIVEKIT_URL = "wss://your-project.livekit.cloud";
-    const TOKEN_ENDPOINT = "https://workers.dev";
-    let room;
+    var LIVEKIT_URL = "wss://your-project.livekit.cloud";
+    var TOKEN_ENDPOINT = "https://workers.dev";
+    var room;
 
     async function joinWall() {
-      const name = document.getElementById("username").value.trim() || "Fan";
-      const placeholder = document.getElementById("placeholderTile");
+      var name = document.getElementById("username").value.trim() || "Fan";
+      var placeholder = document.getElementById("placeholderTile");
       if (placeholder) placeholder.remove();
 
-      // Fallback to local camera preview if LiveKit keys aren't added yet
-      if (LIVEKIT_URL.includes("your-project")) {
+      if (LIVEKIT_URL.indexOf("your-project") !== -1) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          attachLocalPreview(stream, `${name} (Local Preview)`);
+          var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          attachLocalPreview(stream, name + " (Local Preview)");
           document.getElementById("joinBtn").style.display = "none";
           document.getElementById("leaveBtn").style.display = "inline-block";
         } catch (err) {
@@ -174,28 +75,24 @@
 
       document.getElementById("joinBtn").disabled = true;
       try {
-        const res = await fetch(`${TOKEN_ENDPOINT}?room=djtripinva&username=${encodeURIComponent(name)}`);
-        const { token } = await res.json();
+        var res = await fetch(TOKEN_ENDPOINT + "?room=djtripinva&username=" + encodeURIComponent(name));
+        var data = await res.json();
 
         room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
-
-        room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
-          if (track.kind === LivekitClient.Track.Kind.Video) {
-            attachTrack(track, participant.identity);
-          }
+        room.on(LivekitClient.RoomEvent.TrackSubscribed, function(track, pub, participant) {
+          if (track.kind === LivekitClient.Track.Kind.Video) attachTrack(track, participant.identity);
         });
-
-        room.on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
-          const el = document.getElementById("tile-" + participant.identity.replace(/[^a-zA-Z0-9]/g, "_"));
+        room.on(LivekitClient.RoomEvent.ParticipantDisconnected, function(participant) {
+          var el = document.getElementById("tile-" + participant.identity.replace(/[^a-zA-Z0-9]/g, "_"));
           if (el) el.remove();
         });
 
-        await room.connect(LIVEKIT_URL, token);
+        await room.connect(LIVEKIT_URL, data.token);
         await room.localParticipant.setCameraEnabled(true);
-        await room.localParticipant.setMicrophoneEnabled(false); // Audio strictly off
+        await room.localParticipant.setMicrophoneEnabled(false);
 
-        const localCam = Array.from(room.localParticipant.videoTrackPublications.values())[0]?.track;
-        if (localCam) attachTrack(localCam, `${name} (You)`);
+        var pubs = Array.from(room.localParticipant.videoTrackPublications.values());
+        if (pubs.length && pubs[0].track) attachTrack(pubs[0].track, name + " (You)");
 
         document.getElementById("joinBtn").style.display = "none";
         document.getElementById("leaveBtn").style.display = "inline-block";
@@ -206,35 +103,25 @@
     }
 
     function attachLocalPreview(stream, label) {
-      const tile = document.createElement("div");
+      var tile = document.createElement("div");
       tile.className = "video-tile";
-      tile.id = "local-preview-tile";
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.playsInline = true;
-      video.muted = true;
-      const tag = document.createElement("div");
-      tag.className = "name-tag";
-      tag.textContent = label;
-      tile.appendChild(video);
-      tile.appendChild(tag);
+      var video = document.createElement("video");
+      video.srcObject = stream; video.autoplay = true; video.playsInline = true; video.muted = true;
+      var tag = document.createElement("div");
+      tag.className = "name-tag"; tag.textContent = label;
+      tile.appendChild(video); tile.appendChild(tag);
       document.getElementById("videoGrid").appendChild(tile);
     }
 
     function attachTrack(track, id) {
-      const safeId = "tile-" + id.replace(/[^a-zA-Z0-9]/g, "_");
+      var safeId = "tile-" + id.replace(/[^a-zA-Z0-9]/g, "_");
       if (document.getElementById(safeId)) return;
-      const tile = document.createElement("div");
-      tile.className = "video-tile";
-      tile.id = safeId;
-      const videoEl = track.attach();
-      videoEl.muted = true;
-      const tag = document.createElement("div");
-      tag.className = "name-tag";
-      tag.textContent = id;
-      tile.appendChild(videoEl);
-      tile.appendChild(tag);
+      var tile = document.createElement("div");
+      tile.className = "video-tile"; tile.id = safeId;
+      var videoEl = track.attach(); videoEl.muted = true;
+      var tag = document.createElement("div");
+      tag.className = "name-tag"; tag.textContent = id;
+      tile.appendChild(videoEl); tile.appendChild(tag);
       document.getElementById("videoGrid").appendChild(tile);
     }
 
