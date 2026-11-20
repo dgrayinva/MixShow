@@ -35,10 +35,7 @@
   </header>
   <div class="split-container">
     <div class="twitch-pane">
-      <iframe
-        src="https://twitch.tv"
-        allowfullscreen="true">
-      </iframe>
+     <iframe src="https://twitch.tv" allowfullscreen="true"></iframe>
     </div>
     <div class="grid-pane" id="videoGrid">
       <div class="video-tile" id="placeholderTile">
@@ -70,7 +67,7 @@
 
       document.getElementById("joinBtn").disabled = true;
       try {
-        var res = await fetch(TOKEN_ENDPOINT + "?room=monstercat&username=" + encodeURIComponent(name));
+        var res = await fetch(TOKEN_ENDPOINT + "?room=djtripinva&username=" + encodeURIComponent(name));
         var data = await res.json();
 
         room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
