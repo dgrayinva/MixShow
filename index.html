@@ -56,7 +56,7 @@
       <div class="video-tile" id="placeholderTile"><span style="padding:10px;text-align:center;">Click <strong>Join Wall</strong> to share camera (Muted • Max 20)</span></div>
     </div>
   </div>
-  <script>
+    <script>
     var params = new URLSearchParams(window.location.search);
     var isHost = params.get("host") === "true";
     var isDJ = params.get("dj") === "true";
@@ -124,7 +124,7 @@
       }
     }
 
-    // 4. LiveKit Connection (All URLs split safely so extensions cannot strip them)
+    // 4. LiveKit Connection (Every URL piece split so extensions cannot touch them)
     var LIVEKIT_URL = "wss://" + "amp-py17bq2u" + ".livekit.cloud";
     var TOKEN_ENDPOINT = "https://" + "late-voice-bceb.devingslk" + ".workers.dev";
     var room;
@@ -138,8 +138,11 @@
       return new Promise(function(res, rej) {
         if (window.LivekitClient) return res();
         var s = document.createElement("script");
-        var u1 = "https://unpkg.com", u2 = "/livekit-client@2.9.1", u3 = "/dist/livekit-client.umd.min.js";
-        s.src = u1 + u2 + u3;
+        var u1 = "https://cdn.";
+        var u2 = "jsdelivr.net";
+        var u3 = "/npm/livekit-client@2";
+        var u4 = "/dist/livekit-client.umd.min.js";
+        s.src = u1 + u2 + u3 + u4;
         s.onload = res;
         s.onerror = function() { rej(new Error("Could not download LiveKit video library")); };
         document.head.appendChild(s);
@@ -239,3 +242,4 @@
   </script>
 </body>
 </html>
+
