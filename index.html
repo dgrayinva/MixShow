@@ -58,7 +58,7 @@
       <div class="video-tile" id="placeholderTile"><span style="padding:10px;text-align:center;">Click <strong>Join Wall</strong> to share camera (Muted • Max 20)</span></div>
     </div>
   </div>
-  <script>
+    <script>
     var params = new URLSearchParams(window.location.search);
     var isHost = params.get("host") === "true";
     var isDJ = params.get("dj") === "true";
@@ -70,7 +70,7 @@
       if (obsMode === "dj") document.body.classList.add("obs-dj-only");
     }
 
-    // 1. Load Twitch Stream (Swap djtripinva with host's Twitch channel if needed)
+    // 1. Load Twitch Stream
     if (!obsMode) {
       var p1 = "https://player.", p2 = "twitch.tv/", p3 = "?channel=djtripinva", p4 = "&parent=dgrayinva.github.io", p5 = "&muted=false";
       var tf = document.createElement("iframe");
@@ -84,9 +84,11 @@
     function resetSpotlight() {
       if (!spotlightedTile) return;
       var split = document.getElementById("splitContainer"), grid = document.getElementById("videoGrid"), tb = document.getElementById("twitchBox");
-      spotlightedTile.classList.remove("main-stage"); spotlightedTile.classList.add("video-tile");
+      spotlightedTile.classList.remove("main-stage");
+      spotlightedTile.classList.add("video-tile");
       grid.appendChild(spotlightedTile);
-      tb.className = "main-stage"; split.insertBefore(tb, grid);
+      tb.className = "main-stage";
+      split.insertBefore(tb, grid);
       spotlightedTile = null;
       document.getElementById("spotlightBtn").textContent = "Spotlight";
     }
@@ -98,9 +100,11 @@
       if (!tiles.length) return alert("No cameras active on the wall yet!");
       var pick = tiles[Math.floor(Math.random() * tiles.length)];
       spotlightedTile = pick;
-      pick.classList.remove("video-tile"); pick.classList.add("main-stage");
+      pick.classList.remove("video-tile");
+      pick.classList.add("main-stage");
       split.insertBefore(pick, grid);
-      tb.className = "video-tile"; grid.prepend(tb);
+      tb.className = "video-tile";
+      grid.prepend(tb);
       document.getElementById("spotlightBtn").textContent = "Reset View";
     }
 
@@ -113,6 +117,66 @@
     // 3. Floating Emojis & Full-Screen Confetti/Fireworks Bursts
     function triggerBurst(char) {
       var items = char === "🎉" ? ["🎉", "🎊", "✨", "🪩"] : ["🎆", "🎇", "✨", "💥"];
-      for (var i = 0; i 
+      for (var i = 0; i  0 && pubs[0].track) {
+            attachTrack(pubs[0].track, name + " (You)", JSON.stringify({ role: role }), true);
+          }
+        }
+
+        document.getElementById("joinBtn").style.display = "none";
+        document.getElementById("leaveBtn").style.display = "inline-block";
+      } catch (err) {
+        alert("Error: " + (err && err.message ? err.message : String(err)));
+        document.getElementById("joinBtn").disabled = false;
+      }
+    }
+
+    function attachTrack(track, id, metaStr, isMe) {
+      var sid = "tile-" + id.replace(/[^a-zA-Z0-9]/g, "_");
+      if (document.getElementById(sid)) return;
+      var meta = {};
+      try { meta = JSON.parse(metaStr || "{}"); } catch(e) {}
+      var tile = document.createElement("div");
+      tile.className = "video-tile" + (meta.role === "dj" ? " dj-tile" : "") + (isMe ? " is-me" : "");
+      tile.id = sid;
+      var v = track.attach();
+      v.muted = true;
+      var tag = document.createElement("div");
+      tag.className = "name-tag";
+      tag.textContent = id;
+      tile.appendChild(v);
+      tile.appendChild(tag);
+
+      if (isHost && !isMe) {
+        var kb = document.createElement("button");
+        kb.className = "kick-btn";
+        kb.textContent = "✕ Kick & Block";
+        kb.onclick = function() {
+          if (confirm("Kick and block " + id + " from rejoining?")) {
+            fetch(TOKEN_ENDPOINT + "?action=kick&room=amp-show&target=" + encodeURIComponent(id));
+          }
+        };
+        tile.appendChild(kb);
+      }
+
+      document.getElementById("videoGrid").appendChild(tile);
+      updateCount();
+    }
+
+    async function leaveWall() {
+      resetSpotlight();
+      if (room) {
+        var r = room;
+        room = null;
+        await r.disconnect();
+      }
+      document.getElementById("videoGrid").innerHTML = "";
+      document.getElementById("leaveBtn").style.display = "none";
+      document.getElementById("joinBtn").style.display = "inline-block";
+      document.getElementById("joinBtn").disabled = false;
+      updateCount();
+    }
+
+    if (obsMode) joinWall(true);
+  </script>
 </body>
 </html>
