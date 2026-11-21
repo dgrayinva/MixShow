@@ -28,7 +28,6 @@
     .kick-btn { position: absolute; top: 6px; right: 6px; background: #eb0400; color: #fff; border: none; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; z-index: 3; }
     .float-emoji { position: fixed; bottom: 20px; font-size: 32px; pointer-events: none; animation: rise 3s ease-out forwards; z-index: 999; }
     @keyframes rise { 0% { transform: translateY(0) scale(0.8); opacity: 1; } 100% { transform: translateY(-75vh) scale(1.4); opacity: 0; } }
-    /* OBS Clean Capture Mode (?obs=true or ?obs=dj) */
     body.obs-mode header, body.obs-mode #twitchBox, body.obs-mode #placeholderTile { display: none !important; }
     body.obs-mode .grid-pane { flex: 1; padding: 0; gap: 4px; background: transparent; }
     body.obs-dj-only .video-tile:not(.dj-tile) { display: none !important; }
@@ -61,7 +60,7 @@
     var params = new URLSearchParams(window.location.search);
     var isHost = params.get("host") === "true";
     var isDJ = params.get("dj") === "true";
-    var obsMode = params.get("obs"); // "true" (fan wall) or "dj" (guest DJ HD feed)
+    var obsMode = params.get("obs");
     var role = isHost ? "host" : (isDJ ? "dj" : "fan");
 
     if (obsMode) {
@@ -69,9 +68,9 @@
       if (obsMode === "dj") document.body.classList.add("obs-dj-only");
     }
 
-    // 1. Load Host Twitch Stream (Replace HOSTS_TWITCH_CHANNEL with host's username)
+    // 1. Load Twitch Stream (Swap djtripinva with host's Twitch channel if needed)
     if (!obsMode) {
-      var p1 = "https://player.", p2 = "twitch.tv/", p3 = "?channel=HOSTS_TWITCH_CHANNEL", p4 = "&parent=dgrayinva.github.io", p5 = "&muted=false";
+      var p1 = "https://player.", p2 = "twitch.tv/", p3 = "?channel=djtripinva", p4 = "&parent=dgrayinva.github.io", p5 = "&muted=false";
       var tf = document.createElement("iframe");
       tf.src = p1 + p2 + p3 + p4 + p5;
       tf.allowFullscreen = true;
@@ -109,7 +108,7 @@
       document.getElementById("crowdBtn").textContent = hidden ? "Show Crowd" : "Hide Crowd";
     }
 
-    // 3. Floating Emojis (Broadcasts to everyone in LiveKit room)
+    // 3. Floating Emojis
     function spawnEmoji(char) {
       var el = document.createElement("div");
       el.className = "float-emoji"; el.textContent = char;
@@ -125,7 +124,7 @@
       }
     }
 
-    // 4. LiveKit Connection, 20-User Pop-Up Cap & Host Kick
+    // 4. LiveKit Connection (All URLs split safely so extensions cannot strip them)
     var LIVEKIT_URL = "wss://" + "amp-py17bq2u" + ".livekit.cloud";
     var TOKEN_ENDPOINT = "https://" + "late-voice-bceb.devingslk" + ".workers.dev";
     var room;
@@ -139,11 +138,11 @@
       return new Promise(function(res, rej) {
         if (window.LivekitClient) return res();
         var s = document.createElement("script");
-             var u1 = "https://jsdelivr.net";
-     var u2 = "/npm/livekit-client@2";
-     var u3 = "/dist/livekit-client.umd.min.js";
-     s.src = u1 + u2 + u3;
-        s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        var u1 = "https://unpkg.com", u2 = "/livekit-client@2.9.1", u3 = "/dist/livekit-client.umd.min.js";
+        s.src = u1 + u2 + u3;
+        s.onload = res;
+        s.onerror = function() { rej(new Error("Could not download LiveKit video library")); };
+        document.head.appendChild(s);
       });
     }
 
@@ -156,13 +155,16 @@
       try {
         await loadSDK();
         var res = await fetch(TOKEN_ENDPOINT + "?room=amp-show&role=" + role + "&username=" + encodeURIComponent(name));
-        var data = await res.json();
+        var rawText = await res.text();
+        var data;
+        try { data = JSON.parse(rawText); } catch(e) { throw new Error("Worker returned non-JSON: " + rawText.slice(0, 80)); }
 
         if (data.error === "FULL") {
           alert("The dancefloor is full (20/20 cameras active)! Please try joining again once someone logs out.");
           document.getElementById("joinBtn").disabled = false;
           return;
         }
+        if (!data.token) throw new Error("Worker did not return a token: " + rawText.slice(0, 80));
 
         room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
         room.on(LivekitClient.RoomEvent.TrackSubscribed, function(track, pub, p) {
@@ -181,7 +183,6 @@
         await room.connect(LIVEKIT_URL, data.token);
 
         if (!viewOnly) {
-          // Guest DJs get crisp 720p for OBS; Fans get 180p to save 4-hour bandwidth
           var camOpts = isDJ ? { resolution: { width: 1280, height: 720, frameRate: 30 } } : { resolution: { width: 320, height: 180, frameRate: 15 } };
           await room.localParticipant.setCameraEnabled(true, camOpts);
           await room.localParticipant.setMicrophoneEnabled(false);
@@ -192,10 +193,10 @@
 
         document.getElementById("joinBtn").style.display = "none";
         document.getElementById("leaveBtn").style.display = "inline-block";
-         } catch (err) {
-     alert("Error: " + err.message);
-     document.getElementById("joinBtn").disabled = false;
-   }
+      } catch (err) {
+        alert("Error: " + (err && err.message ? err.message : String(err)));
+        document.getElementById("joinBtn").disabled = false;
+      }
     }
 
     function attachTrack(track, id, metaStr, isMe) {
@@ -209,7 +210,6 @@
       var tag = document.createElement("div"); tag.className = "name-tag"; tag.textContent = id;
       tile.appendChild(v); tile.appendChild(tag);
 
-      // Host Moderation Kick Button
       if (isHost && !isMe) {
         var kb = document.createElement("button");
         kb.className = "kick-btn"; kb.textContent = "✕ Kick";
@@ -235,7 +235,6 @@
       updateCount();
     }
 
-    // Auto-connect OBS Browser Source in silent view-only mode
     if (obsMode) joinWall(true);
   </script>
 </body>
