@@ -189,10 +189,10 @@
 
         document.getElementById("joinBtn").style.display = "none";
         document.getElementById("leaveBtn").style.display = "inline-block";
-      } catch (err) {
-        alert("Could not connect to room. Check your LiveKit & Worker URLs.");
-        document.getElementById("joinBtn").disabled = false;
-      }
+         } catch (err) {
+     alert("Error: " + err.message);
+     document.getElementById("joinBtn").disabled = false;
+   }
     }
 
     function attachTrack(track, id, metaStr, isMe) {
