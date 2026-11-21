@@ -1,3 +1,79 @@
+export default {
+  async fetch(request, env) {
+    const cors = {
+      "Access-Control-Allow-Origin": "https://github.io",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Content-Type": "application/json"
+    };
+    if (request.method === "OPTIONS") return new Response(null, { headers: cors });
+
+    const url = new URL(request.url);
+    const room = url.searchParams.get("room") || "amp-show";
+    const username = url.searchParams.get("username") || "Fan-" + Math.floor(Math.random() * 1000);
+    const role = url.searchParams.get("role") || "fan"; // "fan", "dj", or "host"
+    const action = url.searchParams.get("action") || "join";
+
+    const enc = (obj) => btoa(JSON.stringify(obj)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    async function signJwt(payload) {
+      const unsigned = `${enc({ alg: "HS256", typ: "JWT" })}.${enc(payload)}`;
+      const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.LIVEKIT_API_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(unsigned));
+      const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+      return `${unsigned}.${sigB64}`;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const apiHost = env.LIVEKIT_HOST.replace("wss://", "https://");
+
+    // Host Kick Action: Removes a user from the LiveKit room immediately
+    if (action === "kick") {
+      const target = url.searchParams.get("target");
+      const adminToken = await signJwt({ exp: now + 60, iss: env.LIVEKIT_API_KEY, nbf: now - 5, video: { roomAdmin: true, room } });
+      await fetch(`${apiHost}/twirp/livekit.RoomService/RemoveParticipant`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${adminToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ room, identity: target })
+      });
+      return new Response(JSON.stringify({ kicked: true }), { headers: cors });
+    }
+
+    // Check current room participant count (Cap at 20 for fans)
+    if (role === "fan") {
+      const listToken = await signJwt({ exp: now + 60, iss: env.LIVEKIT_API_KEY, nbf: now - 5, video: { roomList: true, roomAdmin: true, room } });
+      const listRes = await fetch(`${apiHost}/twirp/livekit.RoomService/ListParticipants`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${listToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ room })
+      });
+      if (listRes.ok) {
+        const { participants = [] } = await listRes.json();
+        if (participants.length >= 20) {
+          return new Response(JSON.stringify({ error: "FULL" }), { status: 403, headers: cors });
+        }
+      }
+    }
+
+    // Issue video-only token (Audio publishing strictly disabled)
+    const token = await signJwt({
+      exp: now + 18000,
+      iss: env.LIVEKIT_API_KEY,
+      nbf: now - 10,
+      sub: username,
+      metadata: JSON.stringify({ role }),
+      video: {
+        room,
+        roomJoin: true,
+        canPublish: true,
+        canPublishSources: ["camera"],
+        canSubscribe: true,
+        canPublishData: true
+      }
+    });
+
+    return new Response(JSON.stringify({ token }), { headers: cors });
+  }
+};
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,196 +84,218 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #0e0e10; color: #efeff1; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
     header { background: #18181b; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2f2f35; gap: 8px; flex-wrap: wrap; }
-    .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    input { background: #0e0e10; border: 1px solid #3a3a3d; color: white; padding: 6px 10px; border-radius: 4px; width: 130px; }
-    button { background: #9147ff; color: white; border: none; padding: 7px 12px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 13px; }
-    button:hover { background: #772ce8; }
+    .controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    input { background: #0e0e10; border: 1px solid #3a3a3d; color: white; padding: 6px 8px; border-radius: 4px; width: 115px; font-size: 13px; }
+    button { background: #9147ff; color: white; border: none; padding: 6px 11px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 12px; }
+    button:hover { opacity: 0.9; }
     button.spotlight { background: #00a8fc; }
-    button.spotlight:hover { background: #0086c9; }
+    button.toggle { background: #2f2f35; }
+    button.emoji-btn { background: #1f1f23; border: 1px solid #3a3a3d; font-size: 15px; padding: 4px 8px; }
     button.leave { background: #eb0400; display: none; }
-    .split-container { display: flex; flex: 1; overflow: hidden; }
-    .main-stage { flex: 1.2; background: #000; border-right: 1px solid #2f2f35; position: relative; border-radius: 0; border-top: none; border-bottom: none; border-left: none; }
+    .split-container { display: flex; flex: 1; overflow: hidden; position: relative; }
+    .main-stage { flex: 1.2; background: #000; border-right: 1px solid #2f2f35; position: relative; }
     .main-stage iframe, .main-stage video { width: 100%; height: 100%; border: none; display: block; object-fit: cover; }
-    .grid-pane { flex: 1; padding: 12px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-rows: 135px; gap: 10px; align-content: start; }
-    .video-tile { position: relative; background: #1f1f23; border-radius: 8px; overflow: hidden; border: 1px solid #3a3a3d; display: flex; align-items: center; justify-content: center; color: #adadb8; font-size: 13px; height: 135px; }
+    .grid-pane { flex: 1; padding: 12px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); grid-auto-rows: 130px; gap: 10px; align-content: start; }
+    .video-tile { position: relative; background: #1f1f23; border-radius: 8px; overflow: hidden; border: 1px solid #3a3a3d; display: flex; align-items: center; justify-content: center; color: #adadb8; font-size: 12px; height: 130px; }
+    .video-tile.dj-tile { border: 2px solid #9147ff; }
     .video-tile video, .video-tile iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
     video { transform: scaleX(-1); }
-    .name-tag { position: absolute; bottom: 8px; left: 8px; background: rgba(0, 0, 0, 0.75); color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 12px; z-index: 2; }
-    @media (max-width: 768px) {
-      .split-container { flex-direction: column; }
-      .main-stage { flex: none; height: 38dvh; border-right: none; border-bottom: 1px solid #2f2f35; }
-      input { width: 105px; }
-    }
+    .name-tag { position: absolute; bottom: 6px; left: 6px; background: rgba(0,0,0,0.75); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; z-index: 2; }
+    .kick-btn { position: absolute; top: 6px; right: 6px; background: #eb0400; color: #fff; border: none; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; z-index: 3; }
+    .float-emoji { position: fixed; bottom: 20px; font-size: 32px; pointer-events: none; animation: rise 3s ease-out forwards; z-index: 999; }
+    @keyframes rise { 0% { transform: translateY(0) scale(0.8); opacity: 1; } 100% { transform: translateY(-75vh) scale(1.4); opacity: 0; } }
+    /* OBS Clean Capture Mode (?obs=true or ?obs=dj) */
+    body.obs-mode header, body.obs-mode #twitchBox, body.obs-mode #placeholderTile { display: none !important; }
+    body.obs-mode .grid-pane { flex: 1; padding: 0; gap: 4px; background: transparent; }
+    body.obs-dj-only .video-tile:not(.dj-tile) { display: none !important; }
+    body.obs-dj-only .grid-pane { grid-template-columns: 1fr; grid-auto-rows: 100dvh; }
+    body.hide-crowd .video-tile:not(.is-me):not(.dj-tile) { display: none; }
+    @media (max-width: 768px) { .split-container { flex-direction: column; } .main-stage { flex: none; height: 38dvh; border-right: none; border-bottom: 1px solid #2f2f35; } input { width: 95px; } }
   </style>
 </head>
 <body>
   <header>
-    <div><strong>AMP</strong> <span style="font-size: 12px; color: #adadb8;">• Fan Wall (Video Only)</span></div>
+    <div><strong>AMP</strong> <span id="spotCount" style="font-size: 11px; color: #adadb8;">• Video Wall (0/20)</span></div>
     <div class="controls">
+      <button class="emoji-btn" onclick="sendEmoji('🔥')">🔥</button>
+      <button class="emoji-btn" onclick="sendEmoji('🙌')">🙌</button>
+      <button class="emoji-btn" onclick="sendEmoji('🪩')">🪩</button>
+      <button id="crowdBtn" class="toggle" onclick="toggleCrowd()">Hide Crowd</button>
+      <button id="spotlightBtn" class="spotlight" onclick="spotlightRandom()">Spotlight</button>
       <input type="text" id="username" placeholder="Your Name" />
-      <button id="spotlightBtn" class="spotlight" onclick="spotlightRandom()">Spotlight Fan</button>
       <button id="joinBtn" onclick="joinWall()">Join Wall</button>
       <button id="leaveBtn" class="leave" onclick="leaveWall()">Leave</button>
     </div>
   </header>
   <div class="split-container" id="splitContainer">
-    <div class="main-stage" id="twitchBox">
-      <div class="name-tag">AMP (Live)</div>
-    </div>
+    <div class="main-stage" id="twitchBox"><div class="name-tag">Main Broadcast</div></div>
     <div class="grid-pane" id="videoGrid">
-      <div class="video-tile" id="placeholderTile">
-        <span style="padding: 12px; text-align: center;">Click <strong>Join Wall</strong> to turn on your camera (Muted)</span>
-      </div>
+      <div class="video-tile" id="placeholderTile"><span style="padding:10px;text-align:center;">Click <strong>Join Wall</strong> to share camera (Muted • Max 20)</span></div>
     </div>
   </div>
   <script>
-    // 1. Build Twitch URL safely so extensions cannot strip parameters
-    var p1 = "https://player.";
-    var p2 = "twitch.tv/";
-    var p3 = "?channel=djtripinva";
-    var p4 = "&parent=dgrayinva.github.io";
-    var p5 = "&muted=false";
+    var params = new URLSearchParams(window.location.search);
+    var isHost = params.get("host") === "true";
+    var isDJ = params.get("dj") === "true";
+    var obsMode = params.get("obs"); // "true" (fan wall) or "dj" (guest DJ HD feed)
+    var role = isHost ? "host" : (isDJ ? "dj" : "fan");
 
-    var twitchFrame = document.createElement("iframe");
-    twitchFrame.src = p1 + p2 + p3 + p4 + p5;
-    twitchFrame.allowFullscreen = true;
-    document.getElementById("twitchBox").appendChild(twitchFrame);
+    if (obsMode) {
+      document.body.classList.add("obs-mode");
+      if (obsMode === "dj") document.body.classList.add("obs-dj-only");
+    }
 
-    // 2. Spotlight Random Fan Swap (keeps Twitch audio running)
+    // 1. Load Host Twitch Stream (Replace HOSTS_TWITCH_CHANNEL with host's username)
+    if (!obsMode) {
+      var p1 = "https://player.", p2 = "twitch.tv/", p3 = "?channel=HOSTS_TWITCH_CHANNEL", p4 = "&parent=dgrayinva.github.io", p5 = "&muted=false";
+      var tf = document.createElement("iframe");
+      tf.src = p1 + p2 + p3 + p4 + p5;
+      tf.allowFullscreen = true;
+      document.getElementById("twitchBox").appendChild(tf);
+    }
+
+    // 2. Spotlight Random Fan & Crowd Bandwidth Toggle
     var spotlightedTile = null;
-
     function resetSpotlight() {
       if (!spotlightedTile) return;
-      var split = document.getElementById("splitContainer");
-      var grid = document.getElementById("videoGrid");
-      var twitchBox = document.getElementById("twitchBox");
-
-      spotlightedTile.className = "video-tile";
+      var split = document.getElementById("splitContainer"), grid = document.getElementById("videoGrid"), tb = document.getElementById("twitchBox");
+      spotlightedTile.classList.remove("main-stage"); spotlightedTile.classList.add("video-tile");
       grid.appendChild(spotlightedTile);
-
-      twitchBox.className = "main-stage";
-      split.insertBefore(twitchBox, grid);
-
+      tb.className = "main-stage"; split.insertBefore(tb, grid);
       spotlightedTile = null;
-      document.getElementById("spotlightBtn").textContent = "Spotlight Fan";
+      document.getElementById("spotlightBtn").textContent = "Spotlight";
     }
 
     function spotlightRandom() {
-      if (spotlightedTile) {
-        resetSpotlight();
-        return;
-      }
-      var split = document.getElementById("splitContainer");
-      var grid = document.getElementById("videoGrid");
-      var twitchBox = document.getElementById("twitchBox");
-
-      var tiles = Array.from(grid.querySelectorAll(".video-tile")).filter(function(t) {
-        return t.id !== "placeholderTile";
-      });
-      if (tiles.length === 0) {
-        alert("No fan cameras are active on the wall yet!");
-        return;
-      }
-
-      var randomTile = tiles[Math.floor(Math.random() * tiles.length)];
-      spotlightedTile = randomTile;
-
-      // Move chosen fan onto the main stage & move Twitch into a grid tile
-      randomTile.className = "main-stage";
-      split.insertBefore(randomTile, grid);
-
-      twitchBox.className = "video-tile";
-      grid.prepend(twitchBox);
-
+      if (spotlightedTile) return resetSpotlight();
+      var split = document.getElementById("splitContainer"), grid = document.getElementById("videoGrid"), tb = document.getElementById("twitchBox");
+      var tiles = Array.from(grid.querySelectorAll(".video-tile")).filter(function(t) { return t.id !== "placeholderTile"; });
+      if (!tiles.length) return alert("No cameras active on the wall yet!");
+      var pick = tiles[Math.floor(Math.random() * tiles.length)];
+      spotlightedTile = pick;
+      pick.classList.remove("video-tile"); pick.classList.add("main-stage");
+      split.insertBefore(pick, grid);
+      tb.className = "video-tile"; grid.prepend(tb);
       document.getElementById("spotlightBtn").textContent = "Reset View";
     }
 
-    // 3. Lazy-load LiveKit SDK only when needed so page loads fast
-    function loadLiveKitSDK() {
-      return new Promise(function(resolve, reject) {
-        if (window.LivekitClient) return resolve();
-        var s = document.createElement("script");
-        s.src = "https://jsdelivr.net";
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
+    function toggleCrowd() {
+      document.body.classList.toggle("hide-crowd");
+      var hidden = document.body.classList.contains("hide-crowd");
+      document.getElementById("crowdBtn").textContent = hidden ? "Show Crowd" : "Hide Crowd";
     }
 
+    // 3. Floating Emojis (Broadcasts to everyone in LiveKit room)
+    function spawnEmoji(char) {
+      var el = document.createElement("div");
+      el.className = "float-emoji"; el.textContent = char;
+      el.style.left = (15 + Math.random() * 70) + "vw";
+      document.body.appendChild(el);
+      setTimeout(function() { el.remove(); }, 3000);
+    }
+
+    function sendEmoji(char) {
+      spawnEmoji(char);
+      if (room && room.state === "connected") {
+        room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "emoji", char: char })), { reliable: false });
+      }
+    }
+
+    // 4. LiveKit Connection, 20-User Pop-Up Cap & Host Kick
     var LIVEKIT_URL = "wss://your-project.livekit.cloud";
     var TOKEN_ENDPOINT = "https://workers.dev";
     var room;
 
-    async function joinWall() {
-      var name = document.getElementById("username").value.trim() || "Fan";
-      var placeholder = document.getElementById("placeholderTile");
-      if (placeholder) placeholder.remove();
+    function updateCount() {
+      var count = document.querySelectorAll("#videoGrid .video-tile:not(#placeholderTile)").length + (spotlightedTile ? 1 : 0);
+      document.getElementById("spotCount").textContent = "• Video Wall (" + count + "/20)";
+    }
 
-      if (LIVEKIT_URL.indexOf("your-project") !== -1) {
-        try {
-          var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          attachLocalPreview(stream, name + " (Preview)");
-          document.getElementById("joinBtn").style.display = "none";
-          document.getElementById("leaveBtn").style.display = "inline-block";
-        } catch (err) {
-          alert("Please allow camera access in your browser.");
-        }
-        return;
-      }
+    function loadSDK() {
+      return new Promise(function(res, rej) {
+        if (window.LivekitClient) return res();
+        var s = document.createElement("script");
+        s.src = "https://jsdelivr.net";
+        s.onload = res; s.onerror = rej; document.head.appendChild(s);
+      });
+    }
+
+    async function joinWall(viewOnly) {
+      var name = document.getElementById("username").value.trim() || (isDJ ? "Guest DJ" : "Fan");
+      var ph = document.getElementById("placeholderTile");
+      if (ph) ph.remove();
 
       document.getElementById("joinBtn").disabled = true;
       try {
-        await loadLiveKitSDK();
-        var res = await fetch(TOKEN_ENDPOINT + "?room=djtripinva&username=" + encodeURIComponent(name));
+        await loadSDK();
+        var res = await fetch(TOKEN_ENDPOINT + "?room=amp-show&role=" + role + "&username=" + encodeURIComponent(name));
         var data = await res.json();
 
+        if (data.error === "FULL") {
+          alert("The dancefloor is full (20/20 cameras active)! Please try joining again once someone logs out.");
+          document.getElementById("joinBtn").disabled = false;
+          return;
+        }
+
         room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
-        room.on(LivekitClient.RoomEvent.TrackSubscribed, function(track, pub, participant) {
-          if (track.kind === LivekitClient.Track.Kind.Video) attachTrack(track, participant.identity);
+        room.on(LivekitClient.RoomEvent.TrackSubscribed, function(track, pub, p) {
+          if (track.kind === LivekitClient.Track.Kind.Video) attachTrack(track, p.identity, p.metadata, false);
         });
-        room.on(LivekitClient.RoomEvent.ParticipantDisconnected, function(participant) {
-          var safeId = "tile-" + participant.identity.replace(/[^a-zA-Z0-9]/g, "_");
-          if (spotlightedTile && spotlightedTile.id === safeId) resetSpotlight();
-          var el = document.getElementById(safeId);
-          if (el) el.remove();
+        room.on(LivekitClient.RoomEvent.ParticipantDisconnected, function(p) {
+          var sid = "tile-" + p.identity.replace(/[^a-zA-Z0-9]/g, "_");
+          if (spotlightedTile && spotlightedTile.id === sid) resetSpotlight();
+          var el = document.getElementById(sid); if (el) el.remove();
+          updateCount();
+        });
+        room.on(LivekitClient.RoomEvent.DataReceived, function(payload) {
+          try { var msg = JSON.parse(new TextDecoder().decode(payload)); if (msg.type === "emoji") spawnEmoji(msg.char); } catch(e) {}
         });
 
         await room.connect(LIVEKIT_URL, data.token);
-        await room.localParticipant.setCameraEnabled(true);
-        await room.localParticipant.setMicrophoneEnabled(false);
 
-        var pubs = Array.from(room.localParticipant.videoTrackPublications.values());
-        if (pubs.length && pubs.track) attachTrack(pubs.track, name + " (You)");
+        if (!viewOnly) {
+          // Guest DJs get crisp 720p for OBS; Fans get 180p to save 4-hour bandwidth
+          var camOpts = isDJ ? { resolution: { width: 1280, height: 720, frameRate: 30 } } : { resolution: { width: 320, height: 180, frameRate: 15 } };
+          await room.localParticipant.setCameraEnabled(true, camOpts);
+          await room.localParticipant.setMicrophoneEnabled(false);
+
+          var pubs = Array.from(room.localParticipant.videoTrackPublications.values());
+          if (pubs.length && pubs.track) attachTrack(pubs.track, name + " (You)", JSON.stringify({ role: role }), true);
+        }
 
         document.getElementById("joinBtn").style.display = "none";
         document.getElementById("leaveBtn").style.display = "inline-block";
       } catch (err) {
-        alert("Could not connect to LiveKit room.");
+        alert("Could not connect to room. Check your LiveKit & Worker URLs.");
         document.getElementById("joinBtn").disabled = false;
       }
     }
 
-    function attachLocalPreview(stream, label) {
+    function attachTrack(track, id, metaStr, isMe) {
+      var sid = "tile-" + id.replace(/[^a-zA-Z0-9]/g, "_");
+      if (document.getElementById(sid)) return;
+      var meta = {}; try { meta = JSON.parse(metaStr || "{}"); } catch(e) {}
       var tile = document.createElement("div");
-      tile.className = "video-tile";
-      var video = document.createElement("video");
-      video.srcObject = stream; video.autoplay = true; video.playsInline = true; video.muted = true;
-      var tag = document.createElement("div");
-      tag.className = "name-tag"; tag.textContent = label;
-      tile.appendChild(video); tile.appendChild(tag);
-      document.getElementById("videoGrid").appendChild(tile);
-    }
+      tile.className = "video-tile" + (meta.role === "dj" ? " dj-tile" : "") + (isMe ? " is-me" : "");
+      tile.id = sid;
+      var v = track.attach(); v.muted = true;
+      var tag = document.createElement("div"); tag.className = "name-tag"; tag.textContent = id;
+      tile.appendChild(v); tile.appendChild(tag);
 
-    function attachTrack(track, id) {
-      var safeId = "tile-" + id.replace(/[^a-zA-Z0-9]/g, "_");
-      if (document.getElementById(safeId)) return;
-      var tile = document.createElement("div");
-      tile.className = "video-tile"; tile.id = safeId;
-      var videoEl = track.attach(); videoEl.muted = true;
-      var tag = document.createElement("div");
-      tag.className = "name-tag"; tag.textContent = id;
-      tile.appendChild(videoEl); tile.appendChild(tag);
+      // Host Moderation Kick Button
+      if (isHost && !isMe) {
+        var kb = document.createElement("button");
+        kb.className = "kick-btn"; kb.textContent = "✕ Kick";
+        kb.onclick = function() {
+          if (confirm("Remove " + id + " from the wall?")) {
+            fetch(TOKEN_ENDPOINT + "?action=kick&room=amp-show&target=" + encodeURIComponent(id));
+          }
+        };
+        tile.appendChild(kb);
+      }
+
       document.getElementById("videoGrid").appendChild(tile);
+      updateCount();
     }
 
     async function leaveWall() {
@@ -207,7 +305,11 @@
       document.getElementById("leaveBtn").style.display = "none";
       document.getElementById("joinBtn").style.display = "inline-block";
       document.getElementById("joinBtn").disabled = false;
+      updateCount();
     }
+
+    // Auto-connect OBS Browser Source in silent view-only mode
+    if (obsMode) joinWall(true);
   </script>
 </body>
 </html>
