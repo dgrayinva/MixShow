@@ -27,7 +27,7 @@
     .name-tag { position: absolute; bottom: 6px; left: 6px; background: rgba(0,0,0,0.75); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; z-index: 2; }
     .kick-btn { position: absolute; top: 6px; right: 6px; background: #eb0400; color: #fff; border: none; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; z-index: 3; }
     .float-emoji { position: fixed; bottom: 20px; font-size: 32px; pointer-events: none; animation: rise 3s ease-out forwards; z-index: 999; }
-    @keyframes rise { 0% { transform: translateY(0) scale(0.8); opacity: 1; } 100% { transform: translateY(-75vh) scale(1.4); opacity: 0; } }
+    @keyframes rise { 0% { transform: translateY(0) scale(0.8) rotate(0deg); opacity: 1; } 100% { transform: translateY(-78vh) scale(1.4) rotate(25deg); opacity: 0; } }
     body.obs-mode header, body.obs-mode #twitchBox, body.obs-mode #placeholderTile { display: none !important; }
     body.obs-mode .grid-pane { flex: 1; padding: 0; gap: 4px; background: transparent; }
     body.obs-dj-only .video-tile:not(.dj-tile) { display: none !important; }
@@ -40,11 +40,11 @@
   <header>
     <div><strong>AMP</strong> <span id="spotCount" style="font-size: 11px; color: #adadb8;">• Video Wall (0/20)</span></div>
     <div class="controls">
-      <button class="emoji-btn" onclick="sendEmoji('🔥')">🔥</button>
-      <button class="emoji-btn" onclick="sendEmoji('🙌')">🙌</button>
-      <button class="emoji-btn" onclick="sendEmoji('🪩')">🪩</button>
-      <button class="emoji-btn" onclick="sendEmoji('🎉')">🎉</button>
-      <button class="emoji-btn" onclick="sendEmoji('🎊')">🎊</button>
+      <button class="emoji-btn" title="Confetti Burst" onclick="sendEmoji('🎉', true)">🎉</button>
+      <button class="emoji-btn" title="Fireworks Burst" onclick="sendEmoji('🎆', true)">🎆</button>
+      <button class="emoji-btn" onclick="sendEmoji('🔥', false)">🔥</button>
+      <button class="emoji-btn" onclick="sendEmoji('🙌', false)">🙌</button>
+      <button class="emoji-btn" onclick="sendEmoji('🪩', false)">🪩</button>
       <button id="crowdBtn" class="toggle" onclick="toggleCrowd()">Hide Crowd</button>
       <button id="spotlightBtn" class="spotlight" onclick="spotlightRandom()">Spotlight</button>
       <input type="text" id="username" placeholder="Your Name" />
@@ -58,7 +58,7 @@
       <div class="video-tile" id="placeholderTile"><span style="padding:10px;text-align:center;">Click <strong>Join Wall</strong> to share camera (Muted • Max 20)</span></div>
     </div>
   </div>
-    <script>
+  <script>
     var params = new URLSearchParams(window.location.search);
     var isHost = params.get("host") === "true";
     var isDJ = params.get("dj") === "true";
@@ -110,139 +110,9 @@
       document.getElementById("crowdBtn").textContent = hidden ? "Show Crowd" : "Hide Crowd";
     }
 
-    // 3. Floating Emojis
-    function spawnEmoji(char) {
-      var el = document.createElement("div");
-      el.className = "float-emoji"; el.textContent = char;
-      el.style.left = (15 + Math.random() * 70) + "vw";
-      document.body.appendChild(el);
-      setTimeout(function() { el.remove(); }, 3000);
-    }
-
-    function sendEmoji(char) {
-      spawnEmoji(char);
-      if (room && room.state === "connected") {
-        room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ type: "emoji", char: char })), { reliable: false });
-      }
-    }
-
-    // 4. LiveKit Connection (Every URL piece split so extensions cannot touch them)
-    var LIVEKIT_URL = "wss://" + "amp-py17bq2u" + ".livekit.cloud";
-    var TOKEN_ENDPOINT = "https://" + "late-voice-bceb.devingslk" + ".workers.dev";
-    var room;
-
-    function updateCount() {
-      var count = document.querySelectorAll("#videoGrid .video-tile:not(#placeholderTile)").length + (spotlightedTile ? 1 : 0);
-      document.getElementById("spotCount").textContent = "• Video Wall (" + count + "/20)";
-    }
-
-    function loadSDK() {
-      return new Promise(function(res, rej) {
-        if (window.LivekitClient) return res();
-        var s = document.createElement("script");
-        var u1 = "https://cdn.";
-        var u2 = "jsdelivr.net";
-        var u3 = "/npm/livekit-client@2";
-        var u4 = "/dist/livekit-client.umd.min.js";
-        s.src = u1 + u2 + u3 + u4;
-        s.onload = res;
-        s.onerror = function() { rej(new Error("Could not download LiveKit video library")); };
-        document.head.appendChild(s);
-      });
-    }
-
-    async function joinWall(viewOnly) {
-      var name = document.getElementById("username").value.trim() || (isDJ ? "Guest DJ" : "Fan");
-      var ph = document.getElementById("placeholderTile");
-      if (ph) ph.remove();
-
-      document.getElementById("joinBtn").disabled = true;
-      try {
-        await loadSDK();
-        var res = await fetch(TOKEN_ENDPOINT + "?room=amp-show&role=" + role + "&username=" + encodeURIComponent(name));
-        var rawText = await res.text();
-        var data;
-        try { data = JSON.parse(rawText); } catch(e) { throw new Error("Worker returned non-JSON: " + rawText.slice(0, 80)); }
-
-        if (data.error === "FULL") {
-          alert("The dancefloor is full (20/20 cameras active)! Please try joining again once someone logs out.");
-          document.getElementById("joinBtn").disabled = false;
-          return;
-        }
-        if (!data.token) throw new Error("Worker did not return a token: " + rawText.slice(0, 80));
-
-        room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
-        room.on(LivekitClient.RoomEvent.TrackSubscribed, function(track, pub, p) {
-          if (track.kind === LivekitClient.Track.Kind.Video) attachTrack(track, p.identity, p.metadata, false);
-        });
-        room.on(LivekitClient.RoomEvent.ParticipantDisconnected, function(p) {
-          var sid = "tile-" + p.identity.replace(/[^a-zA-Z0-9]/g, "_");
-          if (spotlightedTile && spotlightedTile.id === sid) resetSpotlight();
-          var el = document.getElementById(sid); if (el) el.remove();
-          updateCount();
-        });
-        room.on(LivekitClient.RoomEvent.DataReceived, function(payload) {
-          try { var msg = JSON.parse(new TextDecoder().decode(payload)); if (msg.type === "emoji") spawnEmoji(msg.char); } catch(e) {}
-        });
-
-        await room.connect(LIVEKIT_URL, data.token);
-
-        if (!viewOnly) {
-          var camOpts = isDJ ? { resolution: { width: 1280, height: 720, frameRate: 30 } } : { resolution: { width: 320, height: 180, frameRate: 15 } };
-          await room.localParticipant.setCameraEnabled(true, camOpts);
-          await room.localParticipant.setMicrophoneEnabled(false);
-
-          var pubs = Array.from(room.localParticipant.videoTrackPublications.values());
-          if (pubs.length && pubs[0].track) attachTrack(pubs[0].track, name + " (You)", JSON.stringify({ role: role }), true);
-
-        }
-
-        document.getElementById("joinBtn").style.display = "none";
-        document.getElementById("leaveBtn").style.display = "inline-block";
-      } catch (err) {
-        alert("Error: " + (err && err.message ? err.message : String(err)));
-        document.getElementById("joinBtn").disabled = false;
-      }
-    }
-
-    function attachTrack(track, id, metaStr, isMe) {
-      var sid = "tile-" + id.replace(/[^a-zA-Z0-9]/g, "_");
-      if (document.getElementById(sid)) return;
-      var meta = {}; try { meta = JSON.parse(metaStr || "{}"); } catch(e) {}
-      var tile = document.createElement("div");
-      tile.className = "video-tile" + (meta.role === "dj" ? " dj-tile" : "") + (isMe ? " is-me" : "");
-      tile.id = sid;
-      var v = track.attach(); v.muted = true;
-      var tag = document.createElement("div"); tag.className = "name-tag"; tag.textContent = id;
-      tile.appendChild(v); tile.appendChild(tag);
-
-      if (isHost && !isMe) {
-        var kb = document.createElement("button");
-        kb.className = "kick-btn"; kb.textContent = "✕ Kick";
-        kb.onclick = function() {
-          if (confirm("Remove " + id + " from the wall?")) {
-            fetch(TOKEN_ENDPOINT + "?action=kick&room=amp-show&target=" + encodeURIComponent(id));
-          }
-        };
-        tile.appendChild(kb);
-      }
-
-      document.getElementById("videoGrid").appendChild(tile);
-      updateCount();
-    }
-
-    async function leaveWall() {
-      resetSpotlight();
-      if (room) await room.disconnect();
-      document.getElementById("videoGrid").innerHTML = "";
-      document.getElementById("leaveBtn").style.display = "none";
-      document.getElementById("joinBtn").style.display = "inline-block";
-      document.getElementById("joinBtn").disabled = false;
-      updateCount();
-    }
-
-    if (obsMode) joinWall(true);
-  </script>
+    // 3. Floating Emojis & Full-Screen Confetti/Fireworks Bursts
+    function triggerBurst(char) {
+      var items = char === "🎉" ? ["🎉", "🎊", "✨", "🪩"] : ["🎆", "🎇", "✨", "💥"];
+      for (var i = 0; i 
 </body>
 </html>
-
