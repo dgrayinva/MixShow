@@ -139,7 +139,10 @@
       return new Promise(function(res, rej) {
         if (window.LivekitClient) return res();
         var s = document.createElement("script");
-        s.src = "https://jsdelivr.net";
+             var u1 = "https://jsdelivr.net";
+     var u2 = "/npm/livekit-client@2";
+     var u3 = "/dist/livekit-client.umd.min.js";
+     s.src = u1 + u2 + u3;
         s.onload = res; s.onerror = rej; document.head.appendChild(s);
       });
     }
