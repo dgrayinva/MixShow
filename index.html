@@ -191,7 +191,8 @@
           await room.localParticipant.setMicrophoneEnabled(false);
 
           var pubs = Array.from(room.localParticipant.videoTrackPublications.values());
-          if (pubs.length && pubs.track) attachTrack(pubs.track, name + " (You)", JSON.stringify({ role: role }), true);
+          if (pubs.length && pubs[0].track) attachTrack(pubs[0].track, name + " (You)", JSON.stringify({ role: role }), true);
+
         }
 
         document.getElementById("joinBtn").style.display = "none";
