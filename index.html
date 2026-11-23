@@ -57,7 +57,7 @@
     <div class="controls">
       <button class="emoji-btn" title="Confetti Burst" onclick="sendEmoji('🎉', true)">🎉</button>
       <button class="emoji-btn" title="Fireworks Burst" onclick="sendEmoji('🎆', true)">🎆</button>
-      <button class="emoji-btn" onclick="sendEmoji('🔥', false)">🔥</button>
+      <button class="emoji-btn" onclick="sendEmoji('🔥', true)">🔥</button>
       <button class="emoji-btn" onclick="sendEmoji('🙌', false)">🙌</button>
       <button class="emoji-btn" onclick="sendEmoji('🪩', false)">🪩</button>
       <button id="chatToggleBtn" class="toggle" onclick="toggleChat()">💬 Chat</button>
@@ -193,15 +193,21 @@
     }
 
     function triggerBurst(char) {
-      var items = char === "🎉" ? ["🎉", "🎊", "✨", "🪩"] : ["🎆", "🎇", "✨", "💥"];
+      var items = ["🎆", "🎇", "✨", "💥"];
+      if (char === "🎉") items = ["🎉", "🎊", "✨", "🪩"];
+      if (char === "🔥") {
+        items = ["🔥", "🔥", "💥", "⚡"];
+        document.body.style.boxShadow = "inset 0 0 90px rgba(255, 85, 0, 0.75)";
+        setTimeout(function() { document.body.style.boxShadow = "none"; }, 900);
+      }
       var i = 0;
-      while (i !== 28) {
+      while (i !== 34) {
         (function(delay) {
           setTimeout(function() {
             var pick = items[Math.floor(Math.random() * items.length)];
-            spawnEmoji(pick, 5 + Math.random() * 90);
+            spawnEmoji(pick, 2 + Math.random() * 94);
           }, delay);
-        })(i * 45);
+        })(i * 35);
         i = i + 1;
       }
     }
