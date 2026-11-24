@@ -19,12 +19,67 @@
     .split-container { display: flex; flex: 1; overflow: hidden; position: relative; }
     .main-stage { flex: 1.2; background: #000; border-right: 1px solid #2f2f35; position: relative; }
     .main-stage iframe, .main-stage video { width: 100%; height: 100%; border: none; display: block; object-fit: cover; }
-    .grid-pane { flex: 1; padding: 12px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); grid-auto-rows: 130px; gap: 10px; align-content: start; }
-    .video-tile { position: relative; background: #1f1f23; border-radius: 8px; overflow: hidden; border: 1px solid #3a3a3d; display: flex; align-items: center; justify-content: center; color: #adadb8; font-size: 12px; height: 130px; }
-    .video-tile.dj-tile { border: 2px solid #9147ff; }
-    .video-tile video, .video-tile iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
+        .grid-pane {
+      flex: 1;
+      padding: 14px;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-auto-rows: 148px;
+      gap: 6px;
+      align-content: start;
+      background: repeating-linear-gradient(0deg, #0b0b0d 0px, #0b0b0d 4px, #101014 4px, #101014 8px);
+    }
+    .video-tile {
+      position: relative;
+      height: 148px;
+      border-radius: 5px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #adadb8;
+      font-size: 12px;
+      border: 3px solid #27272a;
+      background:
+        radial-gradient(circle at 8px 8px, #71717a 2px, transparent 3px),
+        radial-gradient(circle at calc(100% - 8px) 8px, #71717a 2px, transparent 3px),
+        radial-gradient(circle at 8px calc(100% - 8px), #71717a 2px, transparent 3px),
+        radial-gradient(circle at calc(100% - 8px) calc(100% - 8px), #71717a 2px, transparent 3px),
+        radial-gradient(circle at center, #1c1c21 45%, #0e0e11 100%);
+      box-shadow: inset 0 0 14px #000, 0 4px 8px rgba(0,0,0,0.75);
+    }
+    .video-tile.dj-tile {
+      border-color: #9147ff;
+      box-shadow: inset 0 0 14px #000, 0 0 12px rgba(145, 71, 255, 0.45);
+    }
+    .video-tile video {
+      width: 114px;
+      height: 114px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 5px solid #27272a;
+      box-shadow: 0 0 0 2px #52525b, inset 0 0 12px rgba(0,0,0,0.85);
+    }
+    .video-tile iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
     video { transform: scaleX(-1); }
-    .name-tag { position: absolute; bottom: 6px; left: 6px; background: rgba(0,0,0,0.75); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; z-index: 2; }
+    .name-tag {
+      position: absolute;
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #18181b;
+      border: 1px solid #52525b;
+      color: #e4e4e7;
+      padding: 1px 7px;
+      border-radius: 2px;
+      font-family: ui-monospace, monospace;
+      font-size: 10px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      z-index: 2;
+    }
     .kick-btn { position: absolute; top: 6px; right: 6px; background: #eb0400; color: #fff; border: none; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; z-index: 3; }
     .chat-pane { width: 280px; background: #18181b; border-left: 1px solid #2f2f35; display: flex; flex-direction: column; }
     .chat-pane.closed { display: none; }
