@@ -321,7 +321,7 @@
           updateCount();
         });
         room.on(LivekitClient.RoomEvent.Disconnected, function() { leaveWall(); });
-        room.on(LivekitClient.RoomEvent.DataReceived, function(payload) {
+                room.on(LivekitClient.RoomEvent.DataReceived, function(payload) {
           try {
             var msg = JSON.parse(new TextDecoder().decode(payload));
             if (msg.type === "emoji") {
@@ -329,16 +329,11 @@
               else spawnEmoji(msg.char);
             } else if (msg.type === "chat") {
               appendChat(msg.sender, msg.text, msg.role);
+            } else if (msg.type === "clubfx") {
+              playClubFx(msg.mode);
             }
-                     } else if (msg.type === "chat") {
-           appendChat(msg.sender, msg.text, msg.role);
-         } else if (msg.type === "clubfx") {
-           playClubFx(msg.mode);
-         }
-
           } catch(e) {}
         });
-
         await room.connect(LIVEKIT_URL, data.token);
 
         if (!viewOnly) {
