@@ -67,6 +67,39 @@
       .split-container.chat-open .grid-pane { display: none; }
       input { width: 95px; }
     }
+        .heart-balloon {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) scale(0.4);
+      font-size: 90px;
+      pointer-events: none;
+      z-index: 1000;
+      animation: inflateShake 1.15s ease-in forwards;
+    }
+    @keyframes inflateShake {
+      0%   { transform: translate(-50%, -50%) scale(0.4) rotate(0deg); opacity: 1; }
+      20%  { transform: translate(-50%, -50%) scale(0.9) rotate(-6deg); }
+      40%  { transform: translate(-50%, -50%) scale(1.4) rotate(7deg); }
+      55%  { transform: translate(-50%, -50%) scale(1.85) rotate(-9deg); }
+      70%  { transform: translate(-50%, -50%) scale(2.25) rotate(10deg); }
+      82%  { transform: translate(-50%, -50%) scale(2.6) rotate(-12deg); }
+      92%  { transform: translate(-50%, -50%) scale(2.9) rotate(12deg); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(3.5) rotate(0deg); opacity: 0; }
+    }
+    .heart-confetti {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      pointer-events: none;
+      z-index: 999;
+      animation: heartPopSpray 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes heartPopSpray {
+      0%   { transform: translate(-50%, -50%) scale(0.3) rotate(0deg); opacity: 1; }
+      75%  { opacity: 1; }
+      100% { transform: translate(var(--tx), var(--ty)) scale(1.1) rotate(var(--rot)); opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -79,6 +112,7 @@
       <button class="emoji-btn" title="Fire Explosion" onclick="sendEmoji('🔥', true)">🔥</button>
       <button class="emoji-btn" title="Strobe Light" onclick="sendClubFx('strobe')">⚡</button>
       <button class="emoji-btn" title="Fog Machine" onclick="sendClubFx('fog')">🌫️</button>
+      <button class="emoji-btn" title="Heart Balloon Pop" onclick="sendHeartPop()">❤️</button>
       <button class="emoji-btn" title="Hands Up" onclick="sendEmoji('🙌', false)">🙌</button>
       <button class="emoji-btn" title="Disco Ball" onclick="sendEmoji('🪩', false)">🪩</button>
       <button id="chatToggleBtn" class="toggle" onclick="toggleChat()">💬 Chat</button>
@@ -266,6 +300,48 @@
         room.localParticipant.publishData(new TextEncoder().encode(payload), { reliable: false });
       }
     }
+     function triggerHeartPop() {
+   var balloon = document.createElement("div");
+   balloon.className = "heart-balloon";
+   balloon.textContent = "❤️";
+   document.body.appendChild(balloon);
+
+   setTimeout(function() {
+     balloon.remove();
+     var hearts = ["❤️", "💖", "💗", "💕", "💓", "💘"];
+     var i = 0;
+     while (i !== 36) {
+       var h = document.createElement("div");
+       h.className = "heart-confetti";
+       h.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+       h.style.fontSize = (16 + Math.floor(Math.random() * 34)) + "px";
+
+       var angle = Math.random() * Math.PI * 2;
+       var dist = 25 + Math.random() * 55;
+       var tx = Math.round(Math.cos(angle) * dist) + "vw";
+       var ty = Math.round(Math.sin(angle) * dist + 12) + "vh";
+       var rot = Math.round((Math.random() - 0.5) * 540) + "deg";
+
+       h.style.setProperty("--tx", tx);
+       h.style.setProperty("--ty", ty);
+       h.style.setProperty("--rot", rot);
+       document.body.appendChild(h);
+
+       (function(el) {
+         setTimeout(function() { el.remove(); }, 2200);
+       })(h);
+       i = i + 1;
+     }
+   }, 1100);
+ }
+
+ function sendHeartPop() {
+   triggerHeartPop();
+   if (room && room.state === "connected") {
+     var payload = JSON.stringify({ type: "heartpop" });
+     room.localParticipant.publishData(new TextEncoder().encode(payload), { reliable: false });
+   }
+ }
     var LIVEKIT_URL = "wss://" + "amp-py17bq2u" + ".livekit.cloud";
     var TOKEN_ENDPOINT = "https://" + "late-voice-bceb.devingslk" + ".workers.dev";
     var room;
@@ -334,6 +410,10 @@
               appendChat(msg.sender, msg.text, msg.role);
             } else if (msg.type === "clubfx") {
               playClubFx(msg.mode);
+            } else if (msg.type === "clubfx") {
+           playClubFx(msg.mode);
+            } else if (msg.type === "heartpop") {
+           triggerHeartPop(); 
             }
           } catch(e) {}
         });
