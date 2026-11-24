@@ -49,9 +49,24 @@
       .chat-pane:not(.closed) ~ .grid-pane, .split-container.chat-open .grid-pane { display: none; }
       input { width: 95px; }
     }
+        #clubFxOverlay { position: fixed; inset: 0; pointer-events: none; z-index: 998; opacity: 0; }
+    @keyframes strobeFlash {
+      0%, 100% { opacity: 0; }
+      10%, 30%, 50%, 70%, 90% { opacity: 0.72; background: #ffffff; }
+      20%, 40%, 60%, 80% { opacity: 0; }
+    }
+    @keyframes fogRoll {
+      0% { opacity: 0; transform: translateY(30%); }
+      25% { opacity: 0.85; transform: translateY(0%); }
+      75% { opacity: 0.75; transform: translateY(-5%); }
+      100% { opacity: 0; transform: translateY(-15%); }
+    }
+    .fx-strobe { animation: strobeFlash 0.9s steps(1) forwards; }
+    .fx-fog { background: radial-gradient(ellipse at bottom, rgba(225,235,255,0.75) 0%, rgba(180,200,230,0.35) 55%, transparent 80%); animation: fogRoll 4s ease-in-out forwards; }
   </style>
 </head>
 <body>
+  <div id="clubFxOverlay"></div>
   <header>
     <div><strong>AMP</strong> <span id="spotCount" style="font-size: 11px; color: #adadb8;">• Video Wall (0/20)</span></div>
     <div class="controls">
@@ -60,6 +75,9 @@
       <button class="emoji-btn" onclick="sendEmoji('🔥', true)">🔥</button>
       <button class="emoji-btn" onclick="sendEmoji('🙌', false)">🙌</button>
       <button class="emoji-btn" onclick="sendEmoji('🪩', false)">🪩</button>
+      <button class="emoji-btn" title="Fire Explosion" onclick="sendEmoji('🔥', true)">🔥</button>
+      <button class="emoji-btn" title="Strobe Light" onclick="sendClubFx('strobe')">⚡</button>
+      <button class="emoji-btn" title="Fog Machine" onclick="sendClubFx('fog')">🌫️</button>
       <button id="chatToggleBtn" class="toggle" onclick="toggleChat()">💬 Chat</button>
       <button id="crowdBtn" class="toggle" onclick="toggleCrowd()">Hide Crowd</button>
       <button id="spotlightBtn" class="spotlight" onclick="spotlightRandom()">Spotlight</button>
@@ -229,6 +247,21 @@
         var payload = JSON.stringify({ type: "emoji", char: char, burst: !!isBurst });
         room.localParticipant.publishData(new TextEncoder().encode(payload), { reliable: false });
       }
+       function playClubFx(mode) {
+   var ov = document.getElementById("clubFxOverlay");
+   ov.className = "";
+   void ov.offsetWidth;
+   ov.className = mode === "strobe" ? "fx-strobe" : "fx-fog";
+ }
+
+ function sendClubFx(mode) {
+   playClubFx(mode);
+   if (room && room.state === "connected") {
+     var payload = JSON.stringify({ type: "clubfx", mode: mode });
+     room.localParticipant.publishData(new TextEncoder().encode(payload), { reliable: false });
+   }
+ }
+
     }
     var LIVEKIT_URL = "wss://" + "amp-py17bq2u" + ".livekit.cloud";
     var TOKEN_ENDPOINT = "https://" + "late-voice-bceb.devingslk" + ".workers.dev";
@@ -297,6 +330,12 @@
             } else if (msg.type === "chat") {
               appendChat(msg.sender, msg.text, msg.role);
             }
+                     } else if (msg.type === "chat") {
+           appendChat(msg.sender, msg.text, msg.role);
+         } else if (msg.type === "clubfx") {
+           playClubFx(msg.mode);
+         }
+
           } catch(e) {}
         });
 
