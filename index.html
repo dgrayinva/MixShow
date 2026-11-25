@@ -59,7 +59,7 @@
 <body>
   <div id="clubFxOverlay"></div>
   <header>
-    <div><strong>FANWALL</strong> <span id="spotCount" style="font-size: 11px; color: #adadb8;">• Speakers (0/20)</span></div>
+    <div><strong>FANWALL</strong> <span id="spotCount" style="font-size: 11px; color: #adadb8;">• Fans (0/20)</span></div>
     <div class="controls">
       <button class="emoji-btn" title="Confetti Burst" onclick="sendEmoji('🎉', true)">🎉</button>
       <button class="emoji-btn" title="Fireworks Burst" onclick="sendEmoji('🎆', true)">🎆</button>
@@ -322,7 +322,7 @@
 
     function updateCount() {
       var count = document.querySelectorAll("#videoGrid .video-tile:not(#placeholderTile)").length + (spotlightedTile ? 1 : 0);
-      document.getElementById("spotCount").textContent = "• Speakers (" + count + "/20)";
+      document.getElementById("spotCount").textContent = "• Fans (" + count + "/20)";
     }
 
     function loadSDK() {
