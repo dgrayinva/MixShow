@@ -1,3 +1,4 @@
+<!-- Copyright (c) 2026 MIXWALL. All Rights Reserved. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -59,7 +60,21 @@
 <body>
   <div id="clubFxOverlay"></div>
   <header>
-    <div><strong>FANWALL</strong> <span id="spotCount" style="font-size: 11px; color: #adadb8;">• Fans (0/20)</span></div>
+        <div style="display:flex;align-items:center;gap:10px;">
+      <svg width="32" height="32" viewBox="0 0 36 36" fill="none" xmlns="http://w3.org">
+        <rect x="2" y="2" width="32" height="32" rx="6" fill="#18181b" stroke="#9147ff" stroke-width="2.5"/>
+        <circle cx="18" cy="18" r="10" stroke="#00e5ff" stroke-width="2"/>
+        <circle cx="18" cy="18" r="4" fill="#9147ff"/>
+      </svg>
+      <div style="display:flex;flex-direction:column;line-height:1.15;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-weight:900;letter-spacing:1.5px;font-size:16px;color:#ffffff;">MIX<span style="color:#00e5ff;">WALL</span></span>
+          <span id="spotCount" style="font-size: 11px; color: #adadb8;">• Speakers (0/20)</span>
+        </div>
+        <span style="font-size:10px;letter-spacing:1.1px;color:#bf94ff;font-weight:700;text-transform:uppercase;">Feel The Beat. See The Crowd.</span>
+      </div>
+    </div>
+
     <div class="controls">
       <button class="emoji-btn" title="Confetti Burst" onclick="sendEmoji('🎉', true)">🎉</button>
       <button class="emoji-btn" title="Fireworks Burst" onclick="sendEmoji('🎆', true)">🎆</button>
@@ -100,6 +115,9 @@
         <input type="text" id="chatInput" placeholder="Say something..." maxlength="200" />
         <button type="submit">Send</button>
       </form>
+   <div style="padding:4px 8px;text-align:center;font-size:10px;color:#71717a;border-top:1px solid #27272a;background:#141417;">
+     &copy; 2026 MIXWALL &bull; All Rights Reserved
+   </div>
     </div>
   </div>
   <script>
@@ -322,7 +340,7 @@
 
     function updateCount() {
       var count = document.querySelectorAll("#videoGrid .video-tile:not(#placeholderTile)").length + (spotlightedTile ? 1 : 0);
-      document.getElementById("spotCount").textContent = "• Fans (" + count + "/20)";
+      document.getElementById("spotCount").textContent = "• Speakers (" + count + "/20)";
     }
 
     function loadSDK() {
