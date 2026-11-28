@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FANWALL — Live Stream &amp; Interactive Crowd</title>
+  <title>MIXWALL — Live Stream &amp; Interactive Crowd</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #0e0e10; color: #efeff1; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; transition: box-shadow 0.2s ease; }
@@ -105,7 +105,7 @@
     </div>
     <div class="chat-pane" id="chatPane">
       <div class="chat-header">
-        <span>FANWALL CHAT</span>
+        <span>MIXWALL CHAT</span>
         <button class="toggle" style="padding:2px 6px;font-size:11px;" onclick="toggleChat()">✕</button>
       </div>
       <div class="chat-messages" id="chatMessages">
@@ -369,7 +369,7 @@
         try { data = JSON.parse(rawText); } catch(e) { throw new Error("Worker returned non-JSON: " + rawText.slice(0, 80)); }
 
         if (data.error === "BANNED") {
-          alert("You have been blocked from joining FANWALL for this show.");
+          alert("You have been blocked from joining MIXWALL for this show.");
           document.getElementById("joinBtn").disabled = false;
           return;
         }
